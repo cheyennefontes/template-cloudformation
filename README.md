@@ -19,7 +19,7 @@ Antes de usar este modelo, certifique-se de que você tenha:
 
 2. Use o AWS CloudFormation para criar uma pilha a partir do modelo.
 
-Recursos Criados
+### Recursos Criados
 Este modelo cria os seguintes recursos na sua conta AWS:
 
 Uma Virtual Private Cloud (VPC) com um bloco CIDR de 10.100.0.0/16.
