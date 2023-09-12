@@ -1,0 +1,102 @@
+Resources:
+
+  # Criando VPC
+  NewVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.100.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+      - Key: Name
+        # Função !Sub: substitui nome da VPC
+        Value: !Sub ${AWS::StackName}-VPC
+
+  # Criando IGW
+  NewInternetGateway:
+    Type: AWS::EC2::InternetGateway
+    DependsOn: NewVPC
+
+  # Associando IGW a VPC
+  NewAttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref NewVPC
+      InternetGatewayId: !Ref NewInternetGateway
+
+  # Criando Sub-redes
+  NewSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      CidrBlock: 10.100.1.0/24
+      VpcId: !Ref NewVPC
+      # Função !Select: pega sempre a primeira AZ da lista de AZs disponíveis da Região
+      AvailabilityZone: !Select [0, !GetAZs '']
+      Tags:
+      - Key: Name
+        Value: !Sub ${AWS::StackName}-Public
+
+  NewSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      CidrBlock: 10.100.10.0/24
+      VpcId: !Ref NewVPC
+      # Função !Select: pega sempre a primeira AZ da lista de AZs disponíveis da Região
+      AvailabilityZone: !Select [0, !GetAZs '']
+      Tags:
+      - Key: Name
+        Value: !Sub ${AWS::StackName}-Private
+
+  # Criando o NAT Gateway
+  NATGatewayElasticIp:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: NewVPC
+
+  # Criando o NAT Gateway
+  NewNATGateway:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      # Função GetAtt: Pega o ElasticIP e passa para o NAT Gateway
+      AllocationId: !GetAtt NATGatewayElasticIp.AllocationId
+      SubnetId: !Ref NewSubnet1
+      Tags:
+      - Key: Name
+      # Join: juntar as strings NAT- com o nome da Stack
+        Value: !Join ['', ["NAT-", !Ref "AWS::StackName"]]
+
+  # Criando a Route Table Private
+  PrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref NewVPC
+      Tags:
+      - Key: Name
+        Value: Private
+
+  # Criando a Route Private e conectando a Route Table Private
+  PrivateRoute1:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      # Route Private sai pelo NAT Gateway
+      NatGatewayId: !Ref NewNATGateway
+
+  # Criando a Route Table Public
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref NewVPC
+      Tags:
+      - Key: Name
+        Value: Public
+
+  # Criando a Route Public e conectando a Route Table Public
+  PublicRoute1:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      # Route public sai pelo internet Gateway
+      GatewayId: !Ref NewInternetGateway
