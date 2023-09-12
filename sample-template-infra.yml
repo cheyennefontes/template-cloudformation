@@ -100,3 +100,119 @@ Resources:
       DestinationCidrBlock: 0.0.0.0/0
       # Route public sai pelo internet Gateway
       GatewayId: !Ref NewInternetGateway
+
+  # Criando SG WEB
+  NewWEBSecGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: WebServers
+      GroupDescription: Sec Group para Web Servers
+      VpcId: !Ref NewVPC
+      SecurityGroupIngress:
+      -
+        IpProtocol: tcp
+        FromPort: 22
+        ToPort: 22
+        CidrIp: 0.0.0.0/0
+      -
+        IpProtocol: tcp
+        FromPort: 80
+        ToPort: 80
+        CidrIp: 0.0.0.0/0
+      -
+        IpProtocol: tcp
+        FromPort: 443
+        ToPort: 443
+        CidrIp: 0.0.0.0/0
+      Tags:
+      - Key: Name
+        Value: WebServers-SG
+
+  # Criando SG DB
+  NewDBSecGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: Databases
+      GroupDescription: Sec Group para Databases
+      VpcId: !Ref NewVPC
+      SecurityGroupIngress:
+      -
+        IpProtocol: tcp
+        FromPort: 22
+        ToPort: 22
+        CidrIp: 0.0.0.0/0
+      -
+        IpProtocol: tcp
+        FromPort: 3306
+        ToPort: 3306
+        CidrIp: 0.0.0.0/0
+      Tags:
+      -
+        Key: Name
+        Value: Databases-SG
+
+  # Criando Volumes para o DB
+  DBVolume:
+    Type: AWS::EC2::Volume
+    DeletionPolicy: Snapshot
+    Properties:
+      AvailabilityZone: !Select [0, !GetAZs '' ]
+      Size: 64
+      Tags:
+        -
+          Key: Name
+          Value: data-volume
+      VolumeType: gp2
+
+  # Criando Instância para DB
+  NewDBInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      BlockDeviceMappings:
+        - DeviceName: "/dev/sda1"
+          Ebs:
+            VolumeSize: 24
+            VolumeType: gp2
+      InstanceType: t2.nano
+      ImageId: ami-053b0d53c279acc90
+      KeyName: magento-teste
+      Monitoring: true
+      SecurityGroupIds:
+      - !Ref NewDBSecGroup
+      SubnetId: !Ref NewSubnet2
+      Tags:
+        -
+          Key: Name
+          Value: !Sub ${AWS::StackName}-DB
+      Volumes:
+        -
+          Device: "/dev/sdf"
+          VolumeId: !Ref DBVolume
+
+  # Criando Elastic IP para instância web
+  NewElasticIp:
+    Type: AWS::EC2::EIP
+    Properties:
+      InstanceId: !Ref NewWEBInstance
+      Domain: NewVPC
+
+ # Criando Instância para Web Server
+  NewWEBInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      BlockDeviceMappings:
+        - DeviceName: "/dev/sda1"
+          Ebs:
+            VolumeSize: 24
+            VolumeType: gp2
+      InstanceType: t2.nano
+      ImageId: ami-053b0d53c279acc90
+      KeyName: magento-teste
+      Monitoring: true
+      SecurityGroupIds:
+        - !Ref NewWEBSecGroup
+      SubnetId: !Ref NewSubnet1
+      Tags:
+        -
+          Key: Name
+          Value: !Sub ${AWS::StackName}-WEB
